@@ -1,8 +1,15 @@
 const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 const OpenAI = require('openai');
+require('dotenv').config(); // بارگذاری متغیرهای محیطی از فایل .env
 
-// توکن بات
+// بررسی متغیرهای محیطی
+if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.AVALAI_API_KEY) {
+    console.error('لطفاً متغیرهای محیطی TELEGRAM_BOT_TOKEN و AVALAI_API_KEY را در فایل .env تعریف کنید.');
+    process.exit(1);
+}
+
+// توکن بات (از متغیر محیطی)
 const token = process.env.TELEGRAM_BOT_TOKEN;
 
 // ایجاد نمونه بات
@@ -31,7 +38,7 @@ const competencies = [
 // تنظیمات API
 const baseURL = "https://api.avalai.ir/v1";
 const openai = new OpenAI({
-    apiKey: process.env.AVALAI_API_KEY,
+    apiKey: process.env.AVALAI_API_KEY, // کلید API از متغیر محیطی
     baseURL: baseURL,
 });
 
@@ -117,13 +124,20 @@ async function generateQuestion(competency) {
         حالا یک سوال جدید طراحی کن:
     `;
 
-    const response = await openai.chat.completions.create({
-        messages: [{ role: "system", content: systemPrompt }],
-        model: "gpt-3.5-turbo",
-    });
+    try {
+        const chatCompletion = await openai.chat.completions.create({
+            messages: [
+                { role: "system", content: systemPrompt },
+            ],
+            model: "gpt-3.5-turbo", // اگر Avalai از مدل متفاوتی استفاده می‌کند، نام مدل را تغییر دهید
+        });
 
-    const questionText = response.choices[0].message.content.trim();
-    return parseQuestion(questionText);
+        const questionText = chatCompletion.choices[0].message.content.trim();
+        return parseQuestion(questionText);
+    } catch (error) {
+        console.error('خطا در تولید سوال:', error.message);
+        throw new Error('خطا در تولید سوال. لطفاً بعداً دوباره امتحان کنید.');
+    }
 }
 
 // تابع برای نمایش سوال با دکمه‌های شیشه‌ای
@@ -187,6 +201,8 @@ bot.on('message', (msg) => {
             generateQuestion(competencies[0]).then(questionData => {
                 userAssessmentStates[chatId].questions.push(questionData);
                 showAssessmentQuestion(chatId, questionData, 0);
+            }).catch(error => {
+                bot.sendMessage(chatId, error.message);
             });
             
             // پاک کردن وضعیت کاربر برای سوالات اولیه
@@ -226,6 +242,8 @@ bot.on('callback_query', (query) => {
             generateQuestion(nextCompetency).then(questionData => {
                 userAssessmentStates[chatId].questions.push(questionData);
                 showAssessmentQuestion(chatId, questionData, currentStep + 1);
+            }).catch(error => {
+                bot.sendMessage(chatId, error.message);
             });
         } else {
             // پایان ارزیابی
