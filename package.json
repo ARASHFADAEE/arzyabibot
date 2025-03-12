@@ -11,7 +11,9 @@
   "type": "commonjs",
   "description": "",
   "dependencies": {
+    "dotenv": "^16.4.7",
     "fs": "^0.0.1-security",
-    "node-telegram-bot-api": "^0.66.0"
+    "node-telegram-bot-api": "^0.66.0",
+    "openai": "^4.87.3"
   }
 }
